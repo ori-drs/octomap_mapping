@@ -69,7 +69,14 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_groundFilterDistance(0.04), m_groundFilterAngle(0.15), m_groundFilterPlaneDistance(0.07),
   m_compressMap(true),
   m_incrementalUpdate(false),
-  m_initConfig(true)
+  m_initConfig(true),
+  m_cropMinX(-std::numeric_limits<double>::max()),
+  m_cropMaxX(std::numeric_limits<double>::max()),
+  m_cropMinY(-std::numeric_limits<double>::max()),
+  m_cropMaxY(std::numeric_limits<double>::max()),
+  m_cropMinZ(-std::numeric_limits<double>::max()),
+  m_cropMaxZ(std::numeric_limits<double>::max())
+
 {
   double probHit, probMiss, thresMin, thresMax;
 
@@ -108,6 +115,13 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_nh_private.param("sensor_model/max", thresMax, 0.97);
   m_nh_private.param("compress_map", m_compressMap, m_compressMap);
   m_nh_private.param("incremental_2D_projection", m_incrementalUpdate, m_incrementalUpdate);
+
+  m_nh_private.param("min_x", m_cropMinX, m_cropMinX);
+  m_nh_private.param("max_x", m_cropMaxX, m_cropMaxX);
+  m_nh_private.param("min_y", m_cropMinY, m_cropMinY);
+  m_nh_private.param("max_y", m_cropMaxY, m_cropMaxY);
+  m_nh_private.param("min_z", m_cropMinZ, m_cropMinZ);
+  m_nh_private.param("max_z", m_cropMaxZ, m_cropMaxZ);
 
   if (m_filterGroundPlane && (m_pointcloudMinZ > 0.0 || m_pointcloudMaxZ < 0.0)){
     ROS_WARN_STREAM("You enabled ground filtering but incoming pointclouds will be pre-filtered in ["
@@ -481,13 +495,8 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
 
 void OctomapServer::cropOutsideBBX(const ros::Time& rostime){
   // TODO read from file. The crop box is access aligned
-  double min_x = -10;
-  double max_x = 10;
-  double min_y = -10;
-  double max_y = 10;
-  double min_z = -5;
-  double max_z = 5;
-  std::string body_frame_id = "body"; //(Spot) TODO: use base_frame_id instead
+
+  std::string body_frame_id = m_baseFrameId;
 
   tf::StampedTransform sensorToWorldTf;
   try {
@@ -510,13 +519,13 @@ void OctomapServer::cropOutsideBBX(const ros::Time& rostime){
     end = m_octree->end(); it != end; ++it){
 
     octomap::OcTreeKey k = it.getKey();
-    if(it.getX() >= center_x + max_x || it.getX() <= center_x + min_x){
+    if(it.getX() >= center_x + m_cropMaxX || it.getX() <= center_x + m_cropMinX){
       //it->setLogOdds(octomap::logodds(0.0f));
       keys.push_back(std::make_pair(k, it.getDepth()));
-    } else if(it.getY() >= center_y + max_y || it.getY() <= center_y + min_y){
+    } else if(it.getY() >= center_y + m_cropMaxY || it.getY() <= center_y + m_cropMinY){
       //it->setLogOdds(octomap::logodds(0.0f));
       keys.push_back(std::make_pair(k, it.getDepth()));
-    } else if(it.getZ() >= center_z + max_z || it.getZ() <= center_z + min_z){
+    } else if(it.getZ() >= center_z + m_cropMaxZ || it.getZ() <= center_z + m_cropMinZ){
       //it->setLogOdds(octomap::logodds(0.0f));
       keys.push_back(std::make_pair(k, it.getDepth()));
     }
