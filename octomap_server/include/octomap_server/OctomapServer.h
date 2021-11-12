@@ -247,6 +247,13 @@ protected:
   double m_minSizeY;
   bool m_filterSpeckles;
 
+  double m_cropMinX;
+  double m_cropMaxX;
+  double m_cropMinY;
+  double m_cropMaxY;
+  double m_cropMinZ;
+  double m_cropMaxZ;
+
   bool m_filterGroundPlane;
   double m_groundFilterDistance;
   double m_groundFilterAngle;
