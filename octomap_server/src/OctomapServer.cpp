@@ -123,6 +123,15 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_nh_private.param("min_z", m_cropMinZ, m_cropMinZ);
   m_nh_private.param("max_z", m_cropMaxZ, m_cropMaxZ);
 
+  // Save data:
+  if(!m_nh_private.getParam("If_save", If_save))
+    ROS_WARN("parameter \"If_save\" not set.");
+  if(!m_nh_private.getParam("If_save_cloud", If_save_cloud))
+    ROS_WARN("parameter \"If_save_cloud\" not set.");
+  if(!m_nh_private.getParam("savepath", savepath))
+    ROS_WARN("parameter \"savepath\" not set.");
+
+
   if (m_filterGroundPlane && (m_pointcloudMinZ > 0.0 || m_pointcloudMaxZ < 0.0)){
     ROS_WARN_STREAM("You enabled ground filtering but incoming pointclouds will be pre-filtered in ["
               <<m_pointcloudMinZ <<", "<< m_pointcloudMaxZ << "], excluding the ground level z=0. "
@@ -217,6 +226,12 @@ OctomapServer::~OctomapServer(){
     m_octree = NULL;
   }
 
+  if(If_save)
+  {
+    OctomapServer::saveTt();
+  }
+
+
 }
 
 bool OctomapServer::openFile(const std::string& filename){
@@ -293,6 +308,14 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   Eigen::Matrix4f sensorToWorld;
   pcl_ros::transformAsMatrix(sensorToWorldTf, sensorToWorld);
 
+  // Save data: Record sensor to world transformation and time
+  if(If_save)
+  {
+    // Save data:
+    idx_save++;
+    vec_sensor2world.push_back(sensorToWorld);
+    vec_time_T.push_back(cloud->header.stamp.toSec());
+  }
 
   // set up filter for height range, also removes NANs:
   pcl::PassThrough<PCLPoint> pass_x;
@@ -339,6 +362,8 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     // transform clouds to world frame for insertion
     pcl::transformPointCloud(pc_ground, pc_ground, baseToWorld);
     pcl::transformPointCloud(pc_nonground, pc_nonground, baseToWorld);
+
+
   } else {
     // directly transform to map frame:
     pcl::transformPointCloud(pc, pc, sensorToWorld);
@@ -364,7 +389,93 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
 
   publishAll(cloud->header.stamp);
+
+  // Save data:
+  if(If_save)
+  {
+    OctomapServer::savemap();
+    if(If_save_cloud)
+    {
+      OctomapServer::savecloud(pc_ground, pc_nonground);
+    }
+  }
 }
+
+// Save data:
+void OctomapServer::savemap()
+{
+  std::string save_path_oct = savepath + "oct/" +std::to_string(idx_save) + ".bt";
+  m_octree->writeBinary(save_path_oct);
+}
+
+void OctomapServer::savecloud(PCLPointCloud ground, PCLPointCloud nonground)
+{
+  std::string path_pc_g = savepath + "pc_g/"  +std::to_string(idx_save) + ".pcd";
+  std::string path_pc_ng = savepath + "pc_ng/"+std::to_string(idx_save) + ".pcd";
+
+  if(m_filterGroundPlane)
+  {
+    pcl::io::savePCDFileASCII (path_pc_g, ground);
+  }
+  pcl::io::savePCDFileASCII (path_pc_ng, nonground);
+}
+
+void OctomapServer::saveTt()
+{
+  int save_counter=0;
+
+    std::string path_T = savepath + "T_world_from_sensor.yaml";
+    std::string path_time = savepath + "timestamp.yaml";
+
+    // YAML Emitter
+    std::ofstream fout_T_yaml;
+    fout_T_yaml.open(path_T,std::ofstream::out);
+    std::ofstream fout_time_yaml;
+    fout_time_yaml.open(path_time,std::ofstream::out);
+
+    std::shared_ptr<YAML::Emitter> time_yaml = std::make_shared<YAML::Emitter>(fout_time_yaml);
+    *time_yaml<<YAML::BeginMap;
+    *time_yaml<<YAML::Key<<"timestamp_T_format";
+    *time_yaml<<YAML::Value<<"timestamp_T";
+    
+
+
+
+    std::shared_ptr<YAML::Emitter> T_yaml = std::make_shared<YAML::Emitter>(fout_T_yaml);
+    *T_yaml<<YAML::BeginMap;
+    *T_yaml<<YAML::Key<<"T_format";
+    *T_yaml<<YAML::Value<<YAML::Flow<<YAML::BeginSeq;
+    *T_yaml<<"m11"<<"m12"<<"m13"<<"m14"<<"m21"<<"m22"<<"m23"<<"m24"<<"m31"<<"m32"<<"m33"<<"m34"<<"m41"<<"m42"<<"m43"<<"m44"<<YAML::EndSeq;
+    
+
+    std::cout<<"Saving files: "<<std::endl;
+
+    for(int i=0;i<vec_sensor2world.size();i++)
+    {
+        
+        *time_yaml<<YAML::Key<<std::to_string(save_counter);
+        *time_yaml<<YAML::Value<<vec_time_T.at(i);
+
+        Eigen::Matrix<float, 4,4> T_temp = vec_sensor2world.at(i);
+        *T_yaml<<YAML::Key<<std::to_string(save_counter);
+        *T_yaml<<YAML::Value<<YAML::Flow<<YAML::BeginSeq;
+        *T_yaml<<T_temp(0,0)<<T_temp(0,1)<<T_temp(0,2)<<T_temp(0,3)
+        <<T_temp(1,0)<<T_temp(1,1)<<T_temp(1,2)<<T_temp(1,3)
+        <<T_temp(2,0)<<T_temp(2,1)<<T_temp(2,2)<<T_temp(2,3)
+        <<T_temp(3,0)<<T_temp(3,1)<<T_temp(3,2)<<T_temp(3,3)<<YAML::EndSeq;
+
+
+        std::cout<<"No: "<<save_counter<<std::endl;
+
+        save_counter++;
+    }
+
+    *T_yaml<<YAML::EndMap;
+    *time_yaml<<YAML::EndMap;
+}
+
+
+
 
 void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCloud& ground, const PCLPointCloud& nonground){
   point3d sensorOrigin = pointTfToOctomap(sensorOriginTf);
@@ -539,6 +650,7 @@ void OctomapServer::cropOutsideBBX(const ros::Time& rostime){
 
 
 void OctomapServer::publishAll(const ros::Time& rostime){
+
   ros::WallTime startTime = ros::WallTime::now();
 
   // TODO: make this crop optional

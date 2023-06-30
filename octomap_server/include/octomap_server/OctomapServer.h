@@ -71,6 +71,9 @@
 #include <octomap/octomap.h>
 #include <octomap/OcTreeKey.h>
 
+// yaml-cpp
+#include "yaml-cpp/yaml.h" 
+
 //#define COLOR_OCTOMAP_SERVER // switch color here - easier maintenance, only maintain OctomapServer. Two targets are defined in the cmake, octomap_server_color and octomap_server. One has this defined, and the other doesn't
 
 #ifdef COLOR_OCTOMAP_SERVER
@@ -196,6 +199,27 @@ protected:
    */
 
   void adjustMapData(nav_msgs::OccupancyGrid& map, const nav_msgs::MapMetaData& oldMapInfo) const;
+
+
+
+  /* rolling_octomap, Save data:
+  * save octomap, pose and point cloud
+  *
+  * Make sure the savepath have following subfolder: pc_g,pc_ng, oct,   
+  */
+  // Param
+  bool If_save;
+  bool If_save_cloud;
+  std::string savepath;
+  // Utils
+  int idx_save=-1;
+  std::vector<Eigen::Matrix4f> vec_sensor2world; // sensor to world transform saved in sequence
+  std::vector<double> vec_time_T; // timestamp of each cloud msg saved in sequence
+  void savemap();
+  void savecloud(PCLPointCloud ground, PCLPointCloud nonground);
+  void saveTt();
+
+
 
   inline bool mapChanged(const nav_msgs::MapMetaData& oldMapInfo, const nav_msgs::MapMetaData& newMapInfo) {
     return (    oldMapInfo.height != newMapInfo.height

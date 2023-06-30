@@ -15,3 +15,8 @@
 octomap_server/docs
 octomap_server/cfg
 octomap_server/src/octomap_server
+
+octomap_server/config/
+.vscode/
+octomap_server/launch/octomap_mapping_example.launch
+

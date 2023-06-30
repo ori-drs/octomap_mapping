@@ -21,6 +21,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(catkin REQUIRED COMPONENTS ${PACKAGE_DEPENDENCIES})
 
+find_package(yaml-cpp REQUIRED)
+
 find_package(octomap REQUIRED)
 add_definitions(-DOCTOMAP_NODEBUGOUT)
 
@@ -28,6 +30,7 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${OCTOMAP_INCLUDE_DIRS}
+  ${YAML_CPP_INCLUDE_DIR}
 )
 
 generate_dynamic_reconfigure_options(cfg/OctomapServer.cfg)
@@ -42,6 +45,7 @@ catkin_package(
 set(LINK_LIBS
   ${OCTOMAP_LIBRARIES}
   ${catkin_LIBRARIES}
+  ${YAML_CPP_LIBRARIES}
 )
 
 add_library(${PROJECT_NAME} src/OctomapServer.cpp src/OctomapServerMultilayer.cpp src/TrackingOctomapServer.cpp)
