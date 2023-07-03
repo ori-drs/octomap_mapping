@@ -126,10 +126,18 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   // Save data:
   if(!m_nh_private.getParam("If_save", If_save))
     ROS_WARN("parameter \"If_save\" not set.");
+  if(!m_nh_private.getParam("If_btmap", If_btmap))
+    ROS_WARN("parameter \"If_btmap\" not set.");    
   if(!m_nh_private.getParam("If_save_cloud", If_save_cloud))
     ROS_WARN("parameter \"If_save_cloud\" not set.");
   if(!m_nh_private.getParam("savepath", savepath))
     ROS_WARN("parameter \"savepath\" not set.");
+
+  // Create directory if not exist
+  OctomapServer::create_savepath();
+
+
+
 
 
   if (m_filterGroundPlane && (m_pointcloudMinZ > 0.0 || m_pointcloudMaxZ < 0.0)){
@@ -160,6 +168,7 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_treeDepth = m_octree->getTreeDepth();
   m_maxTreeDepth = m_treeDepth;
   m_gridmap.info.resolution = m_res;
+
 
   double r, g, b, a;
   m_nh_private.param("color/r", r, 0.0);
@@ -226,6 +235,7 @@ OctomapServer::~OctomapServer(){
     m_octree = NULL;
   }
 
+  // Save data:
   if(If_save)
   {
     OctomapServer::saveTt();
@@ -402,16 +412,54 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
 }
 
 // Save data:
+void OctomapServer::create_savepath()
+{
+  // Create directory if not exist
+  if(If_save)
+  {
+    // Check if savepath exist
+    if(!std::filesystem::is_directory(savepath)|| !std::filesystem::exists(savepath))
+    {
+      ROS_WARN_STREAM(savepath<<" Not Exist");
+      bool If_create = std::filesystem::create_directory(savepath);
+      if(If_create)
+      {
+        std::cout<<"savepath created"<<std::endl;
+      }
+    }
+
+    // Create subfolders to store octomap, pc_g and pc_ng
+    savepath_oct = savepath + "oct/";
+    savepath_pcg = savepath + "pc_g/";
+    savepath_pcng = savepath + "pc_ng/";
+    std::filesystem::create_directory(savepath_oct);
+    std::filesystem::create_directory(savepath_pcg);
+    std::filesystem::create_directory(savepath_pcng);
+
+  }
+}
+
+
+
 void OctomapServer::savemap()
 {
-  std::string save_path_oct = savepath + "oct/" +std::to_string(idx_save) + ".bt";
-  m_octree->writeBinary(save_path_oct);
+  std::string save_temp;
+  if(If_btmap)
+  {
+    save_temp = savepath_oct +std::to_string(idx_save) + ".bt";
+  }
+  else
+  {
+    save_temp = savepath_oct +std::to_string(idx_save) + ".ot";
+  }
+  
+  m_octree->write(save_temp);
 }
 
 void OctomapServer::savecloud(PCLPointCloud ground, PCLPointCloud nonground)
 {
-  std::string path_pc_g = savepath + "pc_g/"  +std::to_string(idx_save) + ".pcd";
-  std::string path_pc_ng = savepath + "pc_ng/"+std::to_string(idx_save) + ".pcd";
+  std::string path_pc_g = savepath_pcg  +std::to_string(idx_save) + ".pcd";
+  std::string path_pc_ng = savepath_pcng +std::to_string(idx_save) + ".pcd";
 
   if(m_filterGroundPlane)
   {
@@ -422,7 +470,9 @@ void OctomapServer::savecloud(PCLPointCloud ground, PCLPointCloud nonground)
 
 void OctomapServer::saveTt()
 {
-  int save_counter=0;
+  if(If_save)
+  {
+    int save_counter=0;
 
     std::string path_T = savepath + "T_world_from_sensor.yaml";
     std::string path_time = savepath + "timestamp.yaml";
@@ -472,6 +522,7 @@ void OctomapServer::saveTt()
 
     *T_yaml<<YAML::EndMap;
     *time_yaml<<YAML::EndMap;
+  }
 }
 
 

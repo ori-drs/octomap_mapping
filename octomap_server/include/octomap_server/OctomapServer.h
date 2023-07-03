@@ -35,6 +35,8 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include <std_msgs/ColorRGBA.h>
 
+#include<filesystem>
+
 // #include <moveit_msgs/CollisionObject.h>
 // #include <moveit_msgs/CollisionMap.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -209,12 +211,17 @@ protected:
   */
   // Param
   bool If_save;
+  bool If_btmap; // save in .bt or .ot format
   bool If_save_cloud;
   std::string savepath;
+  std::string savepath_oct;
+  std::string savepath_pcg;
+  std::string savepath_pcng;
   // Utils
   int idx_save=-1;
   std::vector<Eigen::Matrix4f> vec_sensor2world; // sensor to world transform saved in sequence
   std::vector<double> vec_time_T; // timestamp of each cloud msg saved in sequence
+  void create_savepath();
   void savemap();
   void savecloud(PCLPointCloud ground, PCLPointCloud nonground);
   void saveTt();
