@@ -202,8 +202,6 @@ protected:
 
   void adjustMapData(nav_msgs::OccupancyGrid& map, const nav_msgs::MapMetaData& oldMapInfo) const;
 
-
-
   /* rolling_octomap, Save data:
   * save octomap, pose and point cloud
   *
@@ -222,8 +220,15 @@ protected:
   std::vector<Eigen::Matrix4f> vec_sensor2world; // sensor to world transform saved in sequence
   std::vector<double> vec_time_T; // timestamp of each cloud msg saved in sequence
   void create_savepath();
+
+  std::string getCurrentDate();
+
+  void createSymbolicLink(const std::string& latestResultsFolder, const std::string& symbolicLinkPath);
+
   void savemap();
+  
   void savecloud(PCLPointCloud ground, PCLPointCloud nonground);
+  
   void saveTt();
 
 
@@ -291,7 +296,6 @@ protected:
   double m_groundFilterPlaneDistance;
 
   bool m_compressMap;
-
   bool m_initConfig;
 
   // downprojected 2D map:

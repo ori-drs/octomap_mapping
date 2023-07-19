@@ -27,7 +27,24 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS
 #include <octomap_server/OctomapServer.h>
+
+
+#ifndef __has_include
+  static_assert(false, "__has_include not supported");
+#else
+#  if __cplusplus >= 201703L && __has_include(<filesystem>)
+#    include <filesystem>
+     namespace fs = std::filesystem;
+#  elif __has_include(<experimental/filesystem>)
+#    include <experimental/filesystem>
+     namespace fs = std::experimental::filesystem;
+#  elif __has_include(<boost/filesystem.hpp>)
+#    include <boost/filesystem.hpp>
+     namespace fs = boost::filesystem;
+#  endif
+#endif
 
 using namespace octomap;
 using octomap_msgs::Octomap;
@@ -418,35 +435,56 @@ void OctomapServer::create_savepath()
   if(If_save)
   {
     // Check if savepath exist
-    if(!std::filesystem::is_directory(savepath)|| !std::filesystem::exists(savepath))
+    std::string save_dir;
+    std::string sym_save_dir;
+    save_dir = savepath + "hopping_octomap_" + getCurrentDate() +"/";
+    sym_save_dir = savepath + "hopping_octomap"; 
+    if(!fs::is_directory(save_dir)|| !fs::exists(save_dir))
     {
-      ROS_WARN_STREAM(savepath<<" Not Exist");
-      bool If_create = std::filesystem::create_directory(savepath);
-      if(If_create)
-      {
-        std::cout<<"savepath created"<<std::endl;
+      ROS_WARN_STREAM(save_dir << " Path doesn't Exist");
+      if(fs::create_directory(save_dir)) {
+        std::cout << "Savepath created" << std::endl;
       }
     }
 
     // Create subfolders to store octomap, pc_g and pc_ng
-    savepath_oct = savepath + "oct/";
-    savepath_pcg = savepath + "pc_g/";
-    savepath_pcng = savepath + "pc_ng/";
-    std::filesystem::create_directory(savepath_oct);
-    std::filesystem::create_directory(savepath_pcg);
-    std::filesystem::create_directory(savepath_pcng);
+    savepath_oct = save_dir + "oct/";
+    savepath_pcg = save_dir + "pc_g/";
+    savepath_pcng = save_dir + "pc_ng/";
+    fs::create_directory(savepath_oct);
+    fs::create_directory(savepath_pcg);
+    fs::create_directory(savepath_pcng);
+    createSymbolicLink(save_dir, sym_save_dir);
 
   }
 }
 
 
+std::string OctomapServer::getCurrentDate() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t time = std::chrono::system_clock::to_time_t(now);
+    std::tm* tm = std::localtime(&time);
+
+    std::ostringstream oss;
+    oss << std::put_time(tm, "%Y-%m-%d_%H-%M-%S"); // Format: YYYY-MM-DD_HH-MM-SS
+    return oss.str();
+}
+
+void OctomapServer::createSymbolicLink(const std::string& latestResultsFolder, const std::string& symbolicLinkPath) {
+    // Remove the existing symbolic link if it exists
+    if (fs::exists(symbolicLinkPath)) {
+        fs::remove(symbolicLinkPath);
+    }
+    fs::path latestResultsPath = latestResultsFolder; // Path to the latest set of results
+    fs::create_symlink(latestResultsPath, symbolicLinkPath);
+}
 
 void OctomapServer::savemap()
 {
   std::string save_temp;
   if(If_btmap)
   {
-    save_temp = savepath_oct +std::to_string(idx_save) + ".bt";
+    save_temp = savepath_oct + std::to_string(idx_save) + ".bt";
   }
   else
   {
@@ -497,10 +535,13 @@ void OctomapServer::saveTt()
     *T_yaml<<YAML::Value<<YAML::Flow<<YAML::BeginSeq;
     *T_yaml<<"m11"<<"m12"<<"m13"<<"m14"<<"m21"<<"m22"<<"m23"<<"m24"<<"m31"<<"m32"<<"m33"<<"m34"<<"m41"<<"m42"<<"m43"<<"m44"<<YAML::EndSeq;
     
+    if (vec_sensor2world.size() > 0) {
 
-    std::cout<<"Saving files: "<<std::endl;
+      std::cout << "Saving transformations: "<< std::endl;
+    }
+    
 
-    for(int i=0;i<vec_sensor2world.size();i++)
+    for(int i = 0; i < vec_sensor2world.size(); i++)
     {
         
         *time_yaml<<YAML::Key<<std::to_string(save_counter);
@@ -515,7 +556,7 @@ void OctomapServer::saveTt()
         <<T_temp(3,0)<<T_temp(3,1)<<T_temp(3,2)<<T_temp(3,3)<<YAML::EndSeq;
 
 
-        std::cout<<"No: "<<save_counter<<std::endl;
+        std::cout << "No: " << save_counter << std::endl;
 
         save_counter++;
     }
@@ -1139,7 +1180,7 @@ void OctomapServer::filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& gr
       second_pass.setInputCloud(pc.makeShared());
       second_pass.filter(ground);
 
-      second_pass.setFilterLimitsNegative (true);
+      second_pass.setNegative (true);
       second_pass.filter(nonground);
     }
 
