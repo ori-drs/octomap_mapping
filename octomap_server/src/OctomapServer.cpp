@@ -775,11 +775,19 @@ void OctomapServer::publishAll(const ros::Time& rostime){
   // each array stores all cubes of a different size, one for each depth level:
   occupiedNodesVis.markers.resize(m_treeDepth+1);
 
+
+  // !Debug: always 16
+  //std::cout<<"treeDepth:"<<m_treeDepth<<std::endl;
+
   // init pointcloud:
   pcl::PointCloud<PCLPoint> pclCloud;
 
   // call pre-traversal hook:
   handlePreNodeTraversal(rostime);
+
+
+  // !Debug
+  //std::cout<<"Max tree Depth:"<<m_maxTreeDepth<<std::endl;
 
   // now, traverse all leafs in the tree:
   for (OcTreeT::iterator it = m_octree->begin(m_maxTreeDepth),
