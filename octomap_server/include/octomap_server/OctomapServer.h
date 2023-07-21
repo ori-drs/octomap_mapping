@@ -215,19 +215,21 @@ protected:
   std::string savepath_oct;
   std::string savepath_pcg;
   std::string savepath_pcng;
+  std::string savepath_pose;
   // Utils
   int idx_save=-1;
   std::vector<Eigen::Matrix4f> vec_sensor2world; // sensor to world transform saved in sequence
   std::vector<double> vec_time_T; // timestamp of each cloud msg saved in sequence
+
   void create_savepath();
 
   std::string getCurrentDate();
 
   void createSymbolicLink(const std::string& latestResultsFolder, const std::string& symbolicLinkPath);
 
-  void savemap();
+  void savemap(const sensor_msgs::PointCloud2& cloud);
   
-  void savecloud(PCLPointCloud ground, PCLPointCloud nonground);
+  void savecloud(const PCLPointCloud& ground, const PCLPointCloud& nonground);
   
   void saveTt();
 

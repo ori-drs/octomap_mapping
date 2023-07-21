@@ -125,7 +125,7 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
 
   m_nh_private.param("sensor_model/max_range", m_maxRange, m_maxRange);
 
-  m_nh_private.param("resolution", m_res, m_res);
+  m_nh_private.param("kResolution", m_res, m_res);
   m_nh_private.param("sensor_model/hit", probHit, 0.7);
   m_nh_private.param("sensor_model/miss", probMiss, 0.4);
   m_nh_private.param("sensor_model/min", thresMin, 0.12);
@@ -420,7 +420,9 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   // Save data:
   if(If_save)
   {
-    OctomapServer::savemap();
+    // pcl::PCLPointCloud2::Ptr pcl_cloud(new pcl::PCLPointCloud2);
+    // pcl::fromROSMsg(cloud, *pcl_cloud);
+    OctomapServer::savemap(*cloud);
     if(If_save_cloud)
     {
       OctomapServer::savecloud(pc_ground, pc_nonground);
@@ -443,18 +445,20 @@ void OctomapServer::create_savepath()
     {
       ROS_WARN_STREAM(save_dir << " Path doesn't Exist");
       if(fs::create_directory(save_dir)) {
+        createSymbolicLink(save_dir, sym_save_dir);
         std::cout << "Savepath created" << std::endl;
       }
     }
 
     // Create subfolders to store octomap, pc_g and pc_ng
-    savepath_oct = save_dir + "oct/";
-    savepath_pcg = save_dir + "pc_g/";
-    savepath_pcng = save_dir + "pc_ng/";
+    savepath_oct = save_dir + "payload_octomaps/";
+    savepath_pcg = save_dir + "payload_clouds/";
+    // savepath_pcng = save_dir + "pc_ng/";
+    savepath_pose = save_dir;
     fs::create_directory(savepath_oct);
     fs::create_directory(savepath_pcg);
-    fs::create_directory(savepath_pcng);
-    createSymbolicLink(save_dir, sym_save_dir);
+    // fs::create_directory(savepath_pcng);
+    
 
   }
 }
@@ -479,31 +483,37 @@ void OctomapServer::createSymbolicLink(const std::string& latestResultsFolder, c
     fs::create_symlink(latestResultsPath, symbolicLinkPath);
 }
 
-void OctomapServer::savemap()
+void OctomapServer::savemap(const sensor_msgs::PointCloud2& cloud)
 {
   std::string save_temp;
+  const uint64_t timestamp_sec = cloud.header.stamp.toSec();
+  //const uint64_t timestamp_nsec = cloud.header.stamp;
+  std::chrono::seconds timestamp_seconds(timestamp_sec);
+
   if(If_btmap)
   {
-    save_temp = savepath_oct + std::to_string(idx_save) + ".bt";
+    save_temp = savepath_oct + std::to_string(timestamp_seconds.count()) + ".bt";
   }
   else
   {
-    save_temp = savepath_oct +std::to_string(idx_save) + ".ot";
+    save_temp = savepath_oct + std::to_string(timestamp_seconds.count()) + ".ot";
   }
   
   m_octree->write(save_temp);
 }
 
-void OctomapServer::savecloud(PCLPointCloud ground, PCLPointCloud nonground)
+void OctomapServer::savecloud(const PCLPointCloud& ground, const PCLPointCloud& nonground)
 {
-  std::string path_pc_g = savepath_pcg  +std::to_string(idx_save) + ".pcd";
-  std::string path_pc_ng = savepath_pcng +std::to_string(idx_save) + ".pcd";
-
+  const uint64_t timestamp_nsec = ground.header.stamp;
+  std::string path_pc = savepath_pcg + std::to_string(timestamp_nsec) + ".pcd";
   if(m_filterGroundPlane)
   {
-    pcl::io::savePCDFileASCII (path_pc_g, ground);
+    pcl::io::savePCDFileASCII (path_pc, ground);
   }
-  pcl::io::savePCDFileASCII (path_pc_ng, nonground);
+  else
+  {
+  pcl::io::savePCDFileASCII (path_pc, nonground);
+  }
 }
 
 void OctomapServer::saveTt()
@@ -512,8 +522,8 @@ void OctomapServer::saveTt()
   {
     int save_counter=0;
 
-    std::string path_T = savepath + "T_world_from_sensor.yaml";
-    std::string path_time = savepath + "timestamp.yaml";
+    std::string path_T = savepath_pose + "T_world_from_sensor.yaml";
+    std::string path_time = savepath_pose + "timestamp.yaml";
 
     // YAML Emitter
     std::ofstream fout_T_yaml;
@@ -527,8 +537,6 @@ void OctomapServer::saveTt()
     *time_yaml<<YAML::Value<<"timestamp_T";
     
 
-
-
     std::shared_ptr<YAML::Emitter> T_yaml = std::make_shared<YAML::Emitter>(fout_T_yaml);
     *T_yaml<<YAML::BeginMap;
     *T_yaml<<YAML::Key<<"T_format";
@@ -540,7 +548,6 @@ void OctomapServer::saveTt()
       std::cout << "Saving transformations: "<< std::endl;
     }
     
-
     for(int i = 0; i < vec_sensor2world.size(); i++)
     {
         
