@@ -342,6 +342,36 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     idx_save++;
     vec_sensor2world.push_back(sensorToWorld);
     vec_time_T.push_back(cloud->header.stamp.toSec());
+    // write sensorToWorld to csv as #counter, sec, nsec, x, y, z, qx, qy, qz, qw
+    Eigen::Vector3f position = sensorToWorld.block<3, 1>(0, 3);
+    Eigen::Quaternionf orientation = Eigen::Quaternionf(sensorToWorld.block<3, 3>(0, 0));
+    const uint64_t timestamp_sec = cloud->header.stamp.sec;
+    const uint64_t timestamp_nsec = cloud->header.stamp.nsec;
+    // Open the CSV file in append mode
+    std::ofstream outputFile(savepath_pose + "payload_poses.csv", std::ios::app);
+    if (!outputFile) {
+        std::cerr << "Error opening payload poses file" << std::endl;
+    }
+    // Check if the file is empty to determine if the header needs to be added
+    bool isFileEmpty = outputFile.tellp() == 0;
+    if (isFileEmpty) {
+        // Write CSV header if the file is empty
+        outputFile << "#counter, sec, nsec, x, y, z, qx, qy, qz, qw" << std::endl;
+    }
+    outputFile << idx_save << ", "
+                   << timestamp_sec << ", "
+                   << timestamp_nsec << ", "
+                   << position.x() << ", "
+                   << position.y() << ", "
+                   << position.z() << ", "
+                   << orientation.x() << ", "
+                   << orientation.y() << ", "
+                   << orientation.z() << ", "
+                   << orientation.w() << std::endl;
+
+    outputFile.close();
+    
+
   }
 
   // set up filter for height range, also removes NANs:
@@ -453,16 +483,12 @@ void OctomapServer::create_savepath()
     // Create subfolders to store octomap, pc_g and pc_ng
     savepath_oct = save_dir + "payload_octomaps/";
     savepath_pcg = save_dir + "payload_clouds/";
-    // savepath_pcng = save_dir + "pc_ng/";
     savepath_pose = save_dir;
     fs::create_directory(savepath_oct);
     fs::create_directory(savepath_pcg);
-    // fs::create_directory(savepath_pcng);
-    
 
   }
 }
-
 
 std::string OctomapServer::getCurrentDate() {
     auto now = std::chrono::system_clock::now();
@@ -487,16 +513,17 @@ void OctomapServer::savemap(const sensor_msgs::PointCloud2& cloud)
 {
   std::string save_temp;
   const uint64_t timestamp_sec = cloud.header.stamp.toSec();
-  //const uint64_t timestamp_nsec = cloud.header.stamp;
+  const uint64_t timestamp_nsec = cloud.header.stamp.nsec;
+  std::chrono::nanoseconds timestamp_nseconds(timestamp_nsec);
   std::chrono::seconds timestamp_seconds(timestamp_sec);
 
   if(If_btmap)
   {
-    save_temp = savepath_oct + std::to_string(timestamp_seconds.count()) + ".bt";
+    save_temp = savepath_oct + std::to_string(timestamp_seconds.count()) + "_" + std::to_string(timestamp_nseconds.count())  + ".bt";
   }
   else
   {
-    save_temp = savepath_oct + std::to_string(timestamp_seconds.count()) + ".ot";
+    save_temp = savepath_oct + std::to_string(timestamp_seconds.count()) + "_" + std::to_string(timestamp_nseconds.count()) + ".ot";
   }
   
   m_octree->write(save_temp);
@@ -504,8 +531,10 @@ void OctomapServer::savemap(const sensor_msgs::PointCloud2& cloud)
 
 void OctomapServer::savecloud(const PCLPointCloud& ground, const PCLPointCloud& nonground)
 {
-  const uint64_t timestamp_nsec = ground.header.stamp;
-  std::string path_pc = savepath_pcg + std::to_string(timestamp_nsec) + ".pcd";
+  const uint64_t timestamp = ground.header.stamp;
+  const uint64_t timestamp_sec = timestamp / 1000000; // Extract seconds
+  const uint64_t timestamp_nsec = timestamp % 1000000; // Extract nanoseconds
+  std::string path_pc = savepath_pcg + std::to_string(timestamp_sec) + "_" + std::to_string(timestamp_nsec) + ".pcd";
   if(m_filterGroundPlane)
   {
     pcl::io::savePCDFileASCII (path_pc, ground);
@@ -536,7 +565,6 @@ void OctomapServer::saveTt()
     *time_yaml<<YAML::Key<<"timestamp_T_format";
     *time_yaml<<YAML::Value<<"timestamp_T";
     
-
     std::shared_ptr<YAML::Emitter> T_yaml = std::make_shared<YAML::Emitter>(fout_T_yaml);
     *T_yaml<<YAML::BeginMap;
     *T_yaml<<YAML::Key<<"T_format";
