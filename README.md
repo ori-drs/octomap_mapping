@@ -146,7 +146,7 @@ Enable to filter out speckle node (single occupied node with no neighbor)
 
 
 # Simplified pipeline for octomap_server
-![simple_octomap_server_pipeline](https://drive.google.com/file/d/1fiPE40ChDs5N2Nf82yXcNC2nXyNkL8Ax/view?usp=sharing)
+![simple_octomap_server_pipeline](https://github.com/ori-drs/octomap_mapping/blob/rolling-octomap/Doc/vRecoPipeline%20-%20octomap_server%20basic%20pipeline.jpg)
 
 
 
