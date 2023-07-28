@@ -14,6 +14,7 @@ set(PACKAGE_DEPENDENCIES
   octomap_msgs
   dynamic_reconfigure
   nodelet
+  tf_conversions
 )
 
 set(CMAKE_CXX_STANDARD 17)

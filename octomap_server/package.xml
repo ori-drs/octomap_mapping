@@ -31,6 +31,9 @@
   <build_depend>octomap_ros</build_depend>
   <build_depend>dynamic_reconfigure</build_depend>
   <build_depend>nodelet</build_depend>
+  
+  <build_depend>tf_conversions</build_depend>
+  <exec_depend>tf_conversions</exec_depend>
 
   <exec_depend>roscpp</exec_depend>
   <exec_depend>visualization_msgs</exec_depend>
