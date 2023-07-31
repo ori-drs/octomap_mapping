@@ -452,10 +452,10 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   {
     // pcl::PCLPointCloud2::Ptr pcl_cloud(new pcl::PCLPointCloud2);
     // pcl::fromROSMsg(cloud, *pcl_cloud);
-    OctomapServer::savemap(*cloud);
+    OctomapServer::saveMap(*cloud);
     if(If_save_cloud)
     {
-      OctomapServer::savecloud(pc_ground, pc_nonground);
+      OctomapServer::saveCloud(pc_ground, pc_nonground);
     }
   }
 }
@@ -509,7 +509,7 @@ void OctomapServer::createSymbolicLink(const std::string& latestResultsFolder, c
     fs::create_symlink(latestResultsPath, symbolicLinkPath);
 }
 
-void OctomapServer::savemap(const sensor_msgs::PointCloud2& cloud)
+void OctomapServer::saveMap(const sensor_msgs::PointCloud2& cloud)
 {
   std::string save_temp;
   const uint64_t timestamp_sec = cloud.header.stamp.toSec();
@@ -529,7 +529,7 @@ void OctomapServer::savemap(const sensor_msgs::PointCloud2& cloud)
   m_octree->write(save_temp);
 }
 
-void OctomapServer::savecloud(const PCLPointCloud& ground, const PCLPointCloud& nonground)
+void OctomapServer::saveCloud(const PCLPointCloud& ground, const PCLPointCloud& nonground)
 {
   const uint64_t timestamp = ground.header.stamp;
   const uint64_t timestamp_sec = timestamp / 1000000; // Extract seconds

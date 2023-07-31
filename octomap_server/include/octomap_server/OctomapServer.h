@@ -227,9 +227,9 @@ protected:
 
   void createSymbolicLink(const std::string& latestResultsFolder, const std::string& symbolicLinkPath);
 
-  void savemap(const sensor_msgs::PointCloud2& cloud);
+  void saveMap(const sensor_msgs::PointCloud2& cloud);
   
-  void savecloud(const PCLPointCloud& ground, const PCLPointCloud& nonground);
+  void saveCloud(const PCLPointCloud& ground, const PCLPointCloud& nonground);
   
   void saveTt();
 
