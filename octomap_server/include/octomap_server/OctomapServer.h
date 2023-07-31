@@ -230,6 +230,8 @@ protected:
   void saveMap(const sensor_msgs::PointCloud2& cloud);
   
   void saveCloud(const PCLPointCloud& ground, const PCLPointCloud& nonground);
+
+  void savePose(const Eigen::Matrix4f sensorToWorld, const pcl::PCLPointCloud2& cloud, cont int idx_save);
   
   void saveTt();
 

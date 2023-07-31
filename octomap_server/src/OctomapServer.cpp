@@ -545,7 +545,7 @@ void OctomapServer::saveCloud(const PCLPointCloud& ground, const PCLPointCloud& 
   }
 }
 
-void OctomapServer::savePose(const Eigen::Matrix4f sensorToWorld, const pcl::PCLPointCloud2& cloud, cont int idx_save) {
+void OctomapServer::savePose(const Eigen::Matrix4f sensorToWorld, const pcl::PCLPointCloud2& cloud, const int idx_save) {
   // write sensorToWorld to csv as #counter, sec, nsec, x, y, z, qx, qy, qz, qw
   Eigen::Vector3f position = sensorToWorld.block<3, 1>(0, 3);
   Eigen::Quaternionf orientation = Eigen::Quaternionf(sensorToWorld.block<3, 3>(0, 0));
