@@ -545,6 +545,58 @@ void OctomapServer::savecloud(const PCLPointCloud& ground, const PCLPointCloud& 
   }
 }
 
+void OctomapServer::savePose(const Eigen::Matrix4f sensorToWorld, const pcl::PCLPointCloud2& cloud, cont int idx_save) {
+  // write sensorToWorld to csv as #counter, sec, nsec, x, y, z, qx, qy, qz, qw
+  Eigen::Vector3f position = sensorToWorld.block<3, 1>(0, 3);
+  Eigen::Quaternionf orientation = Eigen::Quaternionf(sensorToWorld.block<3, 3>(0, 0));
+  const uint64_t timestamp_sec = cloud->header.stamp.sec;
+  const uint64_t timestamp_nsec = cloud->header.stamp.nsec;
+  // Open the CSV file in append mode
+  std::ofstream outputCsvFile(savepath_pose + "payload_poses.csv", std::ios::app);
+  if (!outputCsvFile) {
+      std::cerr << "Error opening payload poses csv file" << std::endl;
+  }
+  // Check if the file is empty to determine if the header needs to be added
+  bool isFileEmpty = outputCsvFile.tellp() == 0;
+  if (isFileEmpty) {
+      // Write CSV header if the file is empty
+      outputCsvFile << "#counter, sec, nsec, x, y, z, qx, qy, qz, qw" << std::endl;
+  }
+  outputCsvFile << idx_save << ", "
+                  << timestamp_sec << ", "
+                  << timestamp_nsec << ", "
+                  << position.x() << ", "
+                  << position.y() << ", "
+                  << position.z() << ", "
+                  << orientation.x() << ", "
+                  << orientation.y() << ", "
+                  << orientation.z() << ", "
+                  << orientation.w() << std::endl;
+
+  outputCsvFile.close();
+
+  // write to .g20 file
+  // Open the G2O file in append mode
+  std::ofstream outputG2oFile(savepath_pose + "payload_poses.g2o", std::ios::app | std::ios::out);
+  if (!outputG2oFile) {
+      std::cerr << "Error opening payload poses g2o file" << std::endl;
+  }
+  // Check if the file is empty to determine if the header needs to be added
+  bool isG2oFileEmpty = outputG2oFile.tellp() == 0;
+  if (isG2oFileEmpty) {
+      // Write // Write PLATFORM_ID line if empty
+      outputG2oFile << "PLATFORM_ID 0\n";
+  }
+  // Write VERTEX_SE3:QUAT_TIME line
+  outputG2oFile << "VERTEX_SE3:QUAT_TIME " << idx_save << " "
+              << position.x() << " " << position.y() << " " << position.z() << " "
+              << orientation.x() << " " << orientation.y() << " " << orientation.z()<< " " << orientation.w() << " "
+              << timestamp_sec << " " << timestamp_nsec << "\n";
+
+
+
+}
+
 void OctomapServer::saveTt()
 {
   if(If_save)
