@@ -63,6 +63,8 @@
 
 #include <tf/transform_listener.h>
 #include <tf/message_filter.h>
+#include <tf_conversions/tf_eigen.h>
+#include <tf/transform_broadcaster.h>
 #include <message_filters/subscriber.h>
 #include <octomap_msgs/Octomap.h>
 #include <octomap_msgs/GetOctomap.h>
@@ -202,7 +204,7 @@ protected:
 
   void adjustMapData(nav_msgs::OccupancyGrid& map, const nav_msgs::MapMetaData& oldMapInfo) const;
 
-  /* rolling_octomap, Save data:
+  /* !Feature: rolling_octomap, Save data:
   * save octomap, pose and point cloud
   *
   * Make sure the savepath have following subfolder: pc_g,pc_ng, oct,   
@@ -220,6 +222,26 @@ protected:
   int idx_save=-1;
   std::vector<Eigen::Matrix4f> vec_sensor2world; // sensor to world transform saved in sequence
   std::vector<double> vec_time_T; // timestamp of each cloud msg saved in sequence
+
+  /* !Feature: Pre-transform for point cloud (sensor to base)
+  *
+  */
+  bool If_pretransform_s2b=false;
+  std::string Tfilename_;
+  std::string camname_;
+  std::string Tname_;
+  Eigen::Transform<double, 3, Eigen::Isometry> T_pre_s2b;
+  tf::Transform s2b_tf;
+  //tf::Transformer s2b_transformer; 
+  ros::Subscriber sub_s2b;
+  void s2b_cb_(const sensor_msgs::PointCloud2::ConstPtr& pc_msg);
+
+  /* !Feature: Ground Segmentation axis
+  *
+  */
+  bool If_set_g_seg_Axis;
+  Eigen::Vector3f g_seg_Axis;
+
 
   void create_savepath();
 

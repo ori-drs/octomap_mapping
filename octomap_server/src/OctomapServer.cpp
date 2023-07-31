@@ -92,7 +92,9 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_cropMinY(-std::numeric_limits<double>::max()),
   m_cropMaxY(std::numeric_limits<double>::max()),
   m_cropMinZ(-std::numeric_limits<double>::max()),
-  m_cropMaxZ(std::numeric_limits<double>::max())
+  m_cropMaxZ(std::numeric_limits<double>::max()),
+  If_pretransform_s2b(false),
+  If_set_g_seg_Axis(false)
 
 {
   double probHit, probMiss, thresMin, thresMax;
@@ -140,7 +142,7 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_nh_private.param("min_z", m_cropMinZ, m_cropMinZ);
   m_nh_private.param("max_z", m_cropMaxZ, m_cropMaxZ);
 
-  // Save data:
+  // !Feature: Save data:
   if(!m_nh_private.getParam("If_save", If_save))
     ROS_WARN("parameter \"If_save\" not set.");
   if(!m_nh_private.getParam("If_btmap", If_btmap))
@@ -148,15 +150,69 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   if(!m_nh_private.getParam("If_save_cloud", If_save_cloud))
     ROS_WARN("parameter \"If_save_cloud\" not set.");
   if(!m_nh_private.getParam("savepath", savepath))
-    ROS_WARN("parameter \"savepath\" not set.");
+    ROS_WARN("parameter \"savepath\" not set.");    
 
   // Create directory if not exist
   OctomapServer::create_savepath();
 
+  // !Feature: If apply pretransform sensor2base
+  if(!m_nh_private.getParam("If_pretransform_s2b", If_pretransform_s2b))
+    ROS_WARN("parameter \"If_pretransform_s2b\" not set."); 
+  if(!m_nh_private.getParam("Tfilename_", Tfilename_))
+    ROS_WARN("parameter \"Tfilename_\" not set."); 
+  if(!m_nh_private.getParam("camname_", camname_))
+    ROS_WARN("parameter \"camname_\" not set."); 
+  if(!m_nh_private.getParam("Tname_", Tname_))
+    ROS_WARN("parameter \"Tname_\" not set."); 
+
+  if(If_pretransform_s2b)
+  {
+    ROS_WARN_STREAM("Make sure all nodes set use_sim_time = true !");
+
+    sub_s2b = m_nh.subscribe<sensor_msgs::PointCloud2>("cloud_in", 5, &OctomapServer::s2b_cb_, this);
+
+    YAML::Node camConfig = YAML::LoadFile(Tfilename_);
+    Eigen::Matrix<double, 4,4> T_cam_;
+    for(int i=0;i<4;i++)
+    {
+        for(int j=0;j<4;j++)
+        {
+            T_cam_(i,j)=camConfig[camname_][Tname_][i][j].as<double>();
+        }
+    }
+
+    T_pre_s2b.translation() << T_cam_(0,3), T_cam_(1,3), T_cam_(2,3);
+    T_pre_s2b.linear() = T_cam_.block<3,3>(0,0);
+
+    tf::transformEigenToTF(T_pre_s2b, s2b_tf);
+
+    std::cout<<"s2b: "<<std::endl;
+    std::cout<<T_pre_s2b.matrix()<<std::endl;
+
+  }
+
+
+  // !Feature: Ground Segmentation axis
+  float g_segX, g_segY, g_segZ;
+  if(!m_nh_private.getParam("If_set_g_seg_Axis", If_set_g_seg_Axis))
+    ROS_WARN("parameter \"If_set_g_seg_Axis\" not set."); 
+  if(!m_nh_private.getParam("g_segX", g_segX))
+    ROS_WARN("parameter \"g_segX\" not set."); 
+  if(!m_nh_private.getParam("g_segY", g_segY))
+    ROS_WARN("parameter \"g_segY\" not set."); 
+  if(!m_nh_private.getParam("g_segZ", g_segZ))
+    ROS_WARN("parameter \"g_segZ\" not set."); 
+  if(If_set_g_seg_Axis)
+    g_seg_Axis<<g_segX, g_segY, g_segZ;
+  else
+    g_seg_Axis<<0,0,1;
+
+  if(If_set_g_seg_Axis)
+    std::cout<<"groundSegAxis: "<<g_seg_Axis<<std::endl;
 
 
 
-
+  // ************** Original Code ******************
   if (m_filterGroundPlane && (m_pointcloudMinZ > 0.0 || m_pointcloudMaxZ < 0.0)){
     ROS_WARN_STREAM("You enabled ground filtering but incoming pointclouds will be pre-filtered in ["
               <<m_pointcloudMinZ <<", "<< m_pointcloudMaxZ << "], excluding the ground level z=0. "
@@ -234,6 +290,18 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   f = boost::bind(&OctomapServer::reconfigureCallback, this, _1, _2);
   m_reconfigureServer.setCallback(f);
 }
+
+
+
+void OctomapServer::s2b_cb_(const sensor_msgs::PointCloud2::ConstPtr& pc_msg)
+{
+  static tf::TransformBroadcaster br;
+  br.sendTransform(tf::StampedTransform(s2b_tf,pc_msg->header.stamp, m_baseFrameId, pc_msg->header.frame_id));
+}
+
+
+
+
 
 OctomapServer::~OctomapServer(){
   if (m_tfPointCloudSub){
@@ -335,6 +403,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   Eigen::Matrix4f sensorToWorld;
   pcl_ros::transformAsMatrix(sensorToWorldTf, sensorToWorld);
 
+
   // Save data: Record sensor to world transformation and time
   if(If_save)
   {
@@ -391,8 +460,15 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   if (m_filterGroundPlane){
     tf::StampedTransform sensorToBaseTf, baseToWorldTf;
     try{
-      m_tfListener.waitForTransform(m_baseFrameId, cloud->header.frame_id, cloud->header.stamp, ros::Duration(0.2));
-      m_tfListener.lookupTransform(m_baseFrameId, cloud->header.frame_id, cloud->header.stamp, sensorToBaseTf);
+      if(If_pretransform_s2b==false)
+      {
+        m_tfListener.waitForTransform(m_baseFrameId, cloud->header.frame_id, cloud->header.stamp, ros::Duration(0.2)); 
+        m_tfListener.lookupTransform(m_baseFrameId, cloud->header.frame_id, cloud->header.stamp, sensorToBaseTf);
+      }
+      else
+      {
+        sensorToBaseTf = tf::StampedTransform(s2b_tf,cloud->header.stamp, m_baseFrameId, cloud->header.frame_id);
+      }
       m_tfListener.lookupTransform(m_worldFrameId, m_baseFrameId, cloud->header.stamp, baseToWorldTf);
 
 
@@ -1202,7 +1278,7 @@ void OctomapServer::filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& gr
     seg.setMethodType(pcl::SAC_RANSAC);
     seg.setMaxIterations(200);
     seg.setDistanceThreshold (m_groundFilterDistance);
-    seg.setAxis(Eigen::Vector3f(0,0,1));
+    seg.setAxis(g_seg_Axis); //Eigen::Vector3f(-1,0,0)
     seg.setEpsAngle(m_groundFilterAngle);
 
 
@@ -1238,6 +1314,8 @@ void OctomapServer::filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& gr
           nonground += cloud_out;
           cloud_filtered = cloud_out;
         }
+
+        //std::cout<<"Plane found!!!"<<std::endl;
 
         groundPlaneFound = true;
       } else{
