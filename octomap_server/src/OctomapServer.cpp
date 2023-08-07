@@ -567,11 +567,13 @@ void OctomapServer::saveMap(const sensor_msgs::PointCloud2& cloud)
 
   if(If_btmap) {
     save_temp = savepath_oct + std::to_string(timestamp_seconds.count()) + "_" + std::to_string(timestamp_nseconds.count())  + ".bt";
+    m_octree->writeBinary(save_temp);
   }
   else {
     save_temp = savepath_oct + std::to_string(timestamp_seconds.count()) + "_" + std::to_string(timestamp_nseconds.count()) + ".ot";
+    m_octree->write(save_temp);
   }
-  m_octree->write(save_temp);
+  // m_octree->write(save_temp);
 }
 
 void OctomapServer::saveCloud(const PCLPointCloud& ground, const PCLPointCloud& nonground)
