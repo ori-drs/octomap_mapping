@@ -411,36 +411,8 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     idx_save++;
     vec_sensor2world.push_back(sensorToWorld);
     vec_time_T.push_back(cloud->header.stamp.toSec());
-    // write sensorToWorld to csv as #counter, sec, nsec, x, y, z, qx, qy, qz, qw
-    Eigen::Vector3f position = sensorToWorld.block<3, 1>(0, 3);
-    Eigen::Quaternionf orientation = Eigen::Quaternionf(sensorToWorld.block<3, 3>(0, 0));
-    const uint64_t timestamp_sec = cloud->header.stamp.sec;
-    const uint64_t timestamp_nsec = cloud->header.stamp.nsec;
-    // Open the CSV file in append mode
-    std::ofstream outputFile(savepath_pose + "payload_poses.csv", std::ios::app);
-    if (!outputFile) {
-        std::cerr << "Error opening payload poses file" << std::endl;
-    }
-    // Check if the file is empty to determine if the header needs to be added
-    bool isFileEmpty = outputFile.tellp() == 0;
-    if (isFileEmpty) {
-        // Write CSV header if the file is empty
-        outputFile << "#counter, sec, nsec, x, y, z, qx, qy, qz, qw" << std::endl;
-    }
-    outputFile << idx_save << ", "
-                   << timestamp_sec << ", "
-                   << timestamp_nsec << ", "
-                   << position.x() << ", "
-                   << position.y() << ", "
-                   << position.z() << ", "
-                   << orientation.x() << ", "
-                   << orientation.y() << ", "
-                   << orientation.z() << ", "
-                   << orientation.w() << std::endl;
-
-    outputFile.close();
+    savePose(sensorToWorld, *cloud, idx_save);
     
-
   }
 
   // set up filter for height range, also removes NANs:
@@ -593,15 +565,12 @@ void OctomapServer::saveMap(const sensor_msgs::PointCloud2& cloud)
   std::chrono::nanoseconds timestamp_nseconds(timestamp_nsec);
   std::chrono::seconds timestamp_seconds(timestamp_sec);
 
-  if(If_btmap)
-  {
+  if(If_btmap) {
     save_temp = savepath_oct + std::to_string(timestamp_seconds.count()) + "_" + std::to_string(timestamp_nseconds.count())  + ".bt";
   }
-  else
-  {
+  else {
     save_temp = savepath_oct + std::to_string(timestamp_seconds.count()) + "_" + std::to_string(timestamp_nseconds.count()) + ".ot";
   }
-  
   m_octree->write(save_temp);
 }
 
@@ -609,7 +578,7 @@ void OctomapServer::saveCloud(const PCLPointCloud& ground, const PCLPointCloud& 
 {
   const uint64_t timestamp = ground.header.stamp;
   const uint64_t timestamp_sec = timestamp / 1000000; // Extract seconds
-  const uint64_t timestamp_nsec = timestamp % 1000000; // Extract nanoseconds
+  const uint64_t timestamp_nsec = timestamp % 1000000; // Extract nseconds
   std::string path_pc = savepath_pcg + std::to_string(timestamp_sec) + "_" + std::to_string(timestamp_nsec) + ".pcd";
   if(m_filterGroundPlane)
   {
@@ -621,24 +590,24 @@ void OctomapServer::saveCloud(const PCLPointCloud& ground, const PCLPointCloud& 
   }
 }
 
-void OctomapServer::savePose(const Eigen::Matrix4f sensorToWorld, const pcl::PCLPointCloud2& cloud, const int idx_save) {
-  // write sensorToWorld to csv as #counter, sec, nsec, x, y, z, qx, qy, qz, qw
-  Eigen::Vector3f position = sensorToWorld.block<3, 1>(0, 3);
-  Eigen::Quaternionf orientation = Eigen::Quaternionf(sensorToWorld.block<3, 3>(0, 0));
-  const uint64_t timestamp_sec = cloud->header.stamp.sec;
-  const uint64_t timestamp_nsec = cloud->header.stamp.nsec;
-  // Open the CSV file in append mode
-  std::ofstream outputCsvFile(savepath_pose + "payload_poses.csv", std::ios::app);
-  if (!outputCsvFile) {
-      std::cerr << "Error opening payload poses csv file" << std::endl;
-  }
-  // Check if the file is empty to determine if the header needs to be added
-  bool isFileEmpty = outputCsvFile.tellp() == 0;
-  if (isFileEmpty) {
-      // Write CSV header if the file is empty
-      outputCsvFile << "#counter, sec, nsec, x, y, z, qx, qy, qz, qw" << std::endl;
-  }
-  outputCsvFile << idx_save << ", "
+void OctomapServer::savePose(const Eigen::Matrix4f sensorToWorld, sensor_msgs::PointCloud2 cloud, const int idx_save) {
+    // write sensorToWorld to csv as #counter, sec, nsec, x, y, z, qx, qy, qz, qw
+    Eigen::Vector3f position = sensorToWorld.block<3, 1>(0, 3);
+    Eigen::Quaternionf orientation = Eigen::Quaternionf(sensorToWorld.block<3, 3>(0, 0));
+    const uint64_t timestamp_sec = cloud.header.stamp.sec;
+    const uint64_t timestamp_nsec = cloud.header.stamp.nsec;
+    // Open the CSV file in append mode
+    std::ofstream outputCsvFile(savepath_pose + "payload_poses.csv", std::ios::app);
+    if (!outputCsvFile) {
+        std::cerr << "Error opening payload poses csv file" << std::endl;
+    }
+    // Check if the file is empty to determine if the header needs to be added
+    bool isFileEmpty = outputCsvFile.tellp() == 0;
+    if (isFileEmpty) {
+        // Write CSV header if the file is empty
+        outputCsvFile << "#counter, sec, nsec, x, y, z, qx, qy, qz, qw" << std::endl;
+    }
+    outputCsvFile << idx_save << ", "
                   << timestamp_sec << ", "
                   << timestamp_nsec << ", "
                   << position.x() << ", "
@@ -649,29 +618,78 @@ void OctomapServer::savePose(const Eigen::Matrix4f sensorToWorld, const pcl::PCL
                   << orientation.z() << ", "
                   << orientation.w() << std::endl;
 
-  outputCsvFile.close();
+    outputCsvFile.close();
 
-  // write to .g20 file
-  // Open the G2O file in append mode
-  std::ofstream outputG2oFile(savepath_pose + "payload_poses.g2o", std::ios::app | std::ios::out);
-  if (!outputG2oFile) {
-      std::cerr << "Error opening payload poses g2o file" << std::endl;
-  }
-  // Check if the file is empty to determine if the header needs to be added
-  bool isG2oFileEmpty = outputG2oFile.tellp() == 0;
-  if (isG2oFileEmpty) {
-      // Write // Write PLATFORM_ID line if empty
-      outputG2oFile << "PLATFORM_ID 0\n";
-  }
-  // Write VERTEX_SE3:QUAT_TIME line
-  outputG2oFile << "VERTEX_SE3:QUAT_TIME " << idx_save << " "
-              << position.x() << " " << position.y() << " " << position.z() << " "
-              << orientation.x() << " " << orientation.y() << " " << orientation.z()<< " " << orientation.w() << " "
-              << timestamp_sec << " " << timestamp_nsec << "\n";
-
-
-
+    // write to .g20 file
+    // Open the G2O file in append mode
+    std::ofstream outputG2oFile(savepath_pose + "payload_poses.g2o", std::ios::app | std::ios::out);
+    if (!outputG2oFile) {
+        std::cerr << "Error opening payload poses g2o file" << std::endl;
+    }
+    // Check if the file is empty to determine if the header needs to be added
+    bool isG2oFileEmpty = outputG2oFile.tellp() == 0;
+    if (isG2oFileEmpty) {
+        // Write PLATFORM_ID line if empty
+        outputG2oFile << "PLATFORM_ID 0\n";
+    }
+    // Write VERTEX_SE3:QUAT_TIME line
+    outputG2oFile << "VERTEX_SE3:QUAT_TIME " << idx_save << " "
+                  << position.x() << " " << position.y() << " " << position.z() << " "
+                  << orientation.x() << " " << orientation.y() << " " << orientation.z()<< " " << orientation.w() << " "
+                  << timestamp_sec << " " << timestamp_nsec << "\n";
 }
+
+// void OctomapServer::savePose(const Eigen::Matrix4f sensorToWorld, pcl::PCLPointCloud2 cloud, const int idx_save) {
+//   // write sensorToWorld to csv as #counter, sec, nsec, x, y, z, qx, qy, qz, qw
+//   Eigen::Vector3f position = sensorToWorld.block<3, 1>(0, 3);
+//   Eigen::Quaternionf orientation = Eigen::Quaternionf(sensorToWorld.block<3, 3>(0, 0));
+//   const uint64_t timestamp_sec = cloud.header.stamp.toSec();
+//   const uint64_t timestamp_nsec = cloud.header.stamp.nsec;
+//   // Open the CSV file in append mode
+//   std::ofstream outputCsvFile(savepath_pose + "payload_poses.csv", std::ios::app);
+//   if (!outputCsvFile) {
+//       std::cerr << "Error opening payload poses csv file" << std::endl;
+//   }
+//   // Check if the file is empty to determine if the header needs to be added
+//   bool isFileEmpty = outputCsvFile.tellp() == 0;
+//   if (isFileEmpty) {
+//       // Write CSV header if the file is empty
+//       outputCsvFile << "#counter, sec, nsec, x, y, z, qx, qy, qz, qw" << std::endl;
+//   }
+//   outputCsvFile << idx_save << ", "
+//                   << timestamp_sec << ", "
+//                   << timestamp_nsec << ", "
+//                   << position.x() << ", "
+//                   << position.y() << ", "
+//                   << position.z() << ", "
+//                   << orientation.x() << ", "
+//                   << orientation.y() << ", "
+//                   << orientation.z() << ", "
+//                   << orientation.w() << std::endl;
+
+//   outputCsvFile.close();
+
+//   // write to .g20 file
+//   // Open the G2O file in append mode
+//   std::ofstream outputG2oFile(savepath_pose + "payload_poses.g2o", std::ios::app | std::ios::out);
+//   if (!outputG2oFile) {
+//       std::cerr << "Error opening payload poses g2o file" << std::endl;
+//   }
+//   // Check if the file is empty to determine if the header needs to be added
+//   bool isG2oFileEmpty = outputG2oFile.tellp() == 0;
+//   if (isG2oFileEmpty) {
+//       // Write PLATFORM_ID line if empty
+//       outputG2oFile << "PLATFORM_ID 0\n";
+//   }
+//   // Write VERTEX_SE3:QUAT_TIME line
+//   outputG2oFile << "VERTEX_SE3:QUAT_TIME " << idx_save << " "
+//               << position.x() << " " << position.y() << " " << position.z() << " "
+//               << orientation.x() << " " << orientation.y() << " " << orientation.z()<< " " << orientation.w() << " "
+//               << timestamp_sec << " " << timestamp_nsec << "\n";
+
+
+
+// }
 
 void OctomapServer::saveTt()
 {
@@ -728,9 +746,6 @@ void OctomapServer::saveTt()
     *time_yaml<<YAML::EndMap;
   }
 }
-
-
-
 
 void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCloud& ground, const PCLPointCloud& nonground){
   point3d sensorOrigin = pointTfToOctomap(sensorOriginTf);
@@ -858,7 +873,6 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
 #endif
 }
 
-
 void OctomapServer::cropOutsideBBX(const ros::Time& rostime){
   // TODO read from file. The crop box is access aligned
 
@@ -902,7 +916,6 @@ void OctomapServer::cropOutsideBBX(const ros::Time& rostime){
     m_octree->deleteNode(k.first, k.second);
 
 }
-
 
 void OctomapServer::publishAll(const ros::Time& rostime){
 
@@ -1137,7 +1150,6 @@ void OctomapServer::publishAll(const ros::Time& rostime){
 
 }
 
-
 bool OctomapServer::octomapBinarySrv(OctomapSrv::Request  &req,
                                     OctomapSrv::Response &res)
 {
@@ -1256,7 +1268,6 @@ void OctomapServer::publishFullOctoMap(const ros::Time& rostime) const{
     ROS_ERROR("Error serializing OctoMap");
 
 }
-
 
 void OctomapServer::filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& ground, PCLPointCloud& nonground) const{
   ground.header = pc.header;
@@ -1544,8 +1555,6 @@ void OctomapServer::update2DMap(const OcTreeT::iterator& it, bool occupied){
 
 }
 
-
-
 bool OctomapServer::isSpeckleNode(const OcTreeKey&nKey) const {
   OcTreeKey key;
   bool neighborFound = false;
@@ -1663,7 +1672,6 @@ void OctomapServer::adjustMapData(nav_msgs::OccupancyGrid& map, const nav_msgs::
   }
 
 }
-
 
 std_msgs::ColorRGBA OctomapServer::heightMapColor(double h) {
 
