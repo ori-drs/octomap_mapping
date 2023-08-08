@@ -35,9 +35,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-
+#define PCL_NO_PRECOMPILE
 #include <ros/ros.h>
-#include <octomap_server/OctomapServer.h>
+#include "octomap_server/OctomapServer.h"
 
 #define USAGE "\nUSAGE: octomap_server <map.[bt|ot]>\n" \
         "  map.bt: inital octomap 3D map file to read\n"
@@ -45,10 +45,12 @@
 using namespace octomap_server;
 
 int main(int argc, char** argv){
+  std::cout << "debug statement"  << std::endl;
   ros::init(argc, argv, "octomap_server");
   const ros::NodeHandle nh;
   const ros::NodeHandle private_nh("~");
   std::string mapFilename(""), mapFilenameParam("");
+  
 
   if (argc > 2 || (argc == 2 && std::string(argv[1]) == "-h")){
     ROS_ERROR("%s", USAGE);

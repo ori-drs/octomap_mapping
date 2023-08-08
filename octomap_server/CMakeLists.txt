@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(octomap_server)
 
+
 set(PACKAGE_DEPENDENCIES
   roscpp
   visualization_msgs
@@ -17,22 +18,40 @@ set(PACKAGE_DEPENDENCIES
   tf_conversions
 )
 
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(catkin REQUIRED COMPONENTS ${PACKAGE_DEPENDENCIES})
+find_package(PCL REQUIRED
+  COMPONENTS
+  common
+  filters
+  io
+  kdtree
+  sample_consensus
+  segmentation
+  surface
+  visualization
+)
+
 
 find_package(yaml-cpp REQUIRED)
 
 find_package(octomap REQUIRED)
 add_definitions(-DOCTOMAP_NODEBUGOUT)
 
+
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${OCTOMAP_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDE_DIR}
+  ${PCL_INCLUDE_DIRS}
 )
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+
 
 generate_dynamic_reconfigure_options(cfg/OctomapServer.cfg)
 
@@ -47,6 +66,7 @@ set(LINK_LIBS
   ${OCTOMAP_LIBRARIES}
   ${catkin_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
+  ${PCL_LIBRARIES}
 )
 
 add_library(${PROJECT_NAME} src/OctomapServer.cpp src/OctomapServerMultilayer.cpp src/TrackingOctomapServer.cpp)
@@ -55,11 +75,15 @@ add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
 
 add_library(${PROJECT_NAME}_color src/OctomapServer.cpp src/OctomapServerMultilayer.cpp src/TrackingOctomapServer.cpp)
 target_link_libraries(${PROJECT_NAME}_color ${LINK_LIBS})
+
 add_dependencies(${PROJECT_NAME}_color ${PROJECT_NAME}_gencfg)
 target_compile_definitions(${PROJECT_NAME}_color PUBLIC COLOR_OCTOMAP_SERVER)
 
-add_executable(octomap_server_node src/octomap_server_node.cpp)
-target_link_libraries(octomap_server_node ${PROJECT_NAME} ${LINK_LIBS})
+add_executable(test_pcl src/test.cpp)
+target_link_libraries(test_pcl ${PROJECT_NAME})
+
+add_executable(octomap_server_node src/octomap_server_node.cpp src/OctomapServer.cpp)
+target_link_libraries(octomap_server_node ${LINK_LIBS} )
 
 add_executable(octomap_color_server_node src/octomap_server_node.cpp)
 target_link_libraries(octomap_color_server_node ${PROJECT_NAME}_color ${LINK_LIBS})

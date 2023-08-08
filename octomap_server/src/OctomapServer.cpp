@@ -26,10 +26,10 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-
+#define PCL_NO_PRECOMPILE
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
-#include <octomap_server/OctomapServer.h>
-
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/passthrough.h>
 
 #ifndef __has_include
   static_assert(false, "__has_include not supported");
@@ -45,6 +45,8 @@
      namespace fs = boost::filesystem;
 #  endif
 #endif
+
+#include "octomap_server/OctomapServer.h"
 
 using namespace octomap;
 using octomap_msgs::Octomap;
@@ -414,10 +416,11 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     savePose(sensorToWorld, *cloud, idx_save);
     
   }
-
+  std::cout << "debug" << std::endl;
   // set up filter for height range, also removes NANs:
   pcl::PassThrough<PCLPoint> pass_x;
   pass_x.setFilterFieldName("x");
+  std::cout << "debug2" << std::endl;
   pass_x.setFilterLimits(m_pointcloudMinX, m_pointcloudMaxX);
   pcl::PassThrough<PCLPoint> pass_y;
   pass_y.setFilterFieldName("y");
