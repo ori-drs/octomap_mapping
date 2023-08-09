@@ -79,9 +79,6 @@ target_link_libraries(${PROJECT_NAME}_color ${LINK_LIBS})
 add_dependencies(${PROJECT_NAME}_color ${PROJECT_NAME}_gencfg)
 target_compile_definitions(${PROJECT_NAME}_color PUBLIC COLOR_OCTOMAP_SERVER)
 
-add_executable(test_pcl src/test.cpp)
-target_link_libraries(test_pcl ${PROJECT_NAME})
-
 add_executable(octomap_server_node src/octomap_server_node.cpp src/OctomapServer.cpp)
 target_link_libraries(octomap_server_node ${LINK_LIBS} )
 
