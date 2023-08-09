@@ -45,7 +45,6 @@
 using namespace octomap_server;
 
 int main(int argc, char** argv){
-  std::cout << "debug statement"  << std::endl;
   ros::init(argc, argv, "octomap_server");
   const ros::NodeHandle nh;
   const ros::NodeHandle private_nh("~");

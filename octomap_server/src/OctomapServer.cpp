@@ -188,8 +188,7 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
 
     tf::transformEigenToTF(T_pre_s2b, s2b_tf);
 
-    std::cout<<"s2b: "<<std::endl;
-    std::cout<<T_pre_s2b.matrix()<<std::endl;
+    ROS_INFO_STREAM("s2b: " << T_pre_s2b.matrix());
 
   }
 
@@ -210,7 +209,7 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
     g_seg_Axis<<0,0,1;
 
   if(If_set_g_seg_Axis)
-    std::cout<<"groundSegAxis: "<<g_seg_Axis<<std::endl;
+    ROS_INFO_STREAM("groundSegAxis: " << g_seg_Axis);
 
 
 
@@ -416,11 +415,9 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     savePose(sensorToWorld, *cloud, idx_save);
     
   }
-  std::cout << "debug" << std::endl;
   // set up filter for height range, also removes NANs:
   pcl::PassThrough<PCLPoint> pass_x;
   pass_x.setFilterFieldName("x");
-  std::cout << "debug2" << std::endl;
   pass_x.setFilterLimits(m_pointcloudMinX, m_pointcloudMaxX);
   pcl::PassThrough<PCLPoint> pass_y;
   pass_y.setFilterFieldName("y");
@@ -524,10 +521,10 @@ void OctomapServer::create_savepath()
     sym_save_dir = savepath + "hopping_octomap"; 
     if(!fs::is_directory(save_dir)|| !fs::exists(save_dir))
     {
-      ROS_WARN_STREAM(save_dir << " Path doesn't Exist");
+      ROS_WARN_STREAM(save_dir << " Path doesn't exist yet. Creating now.");
       if(fs::create_directory(save_dir)) {
         createSymbolicLink(save_dir, sym_save_dir);
-        std::cout << "Savepath created" << std::endl;
+        ROS_INFO_STREAM("Savepath created");
       }
     }
 
@@ -724,7 +721,7 @@ void OctomapServer::saveTt()
     
     if (vec_sensor2world.size() > 0) {
 
-      std::cout << "Saving transformations: "<< std::endl;
+      ROS_INFO_STREAM("Saving transformations: ");
     }
     
     for(int i = 0; i < vec_sensor2world.size(); i++)
@@ -742,7 +739,7 @@ void OctomapServer::saveTt()
         <<T_temp(3,0)<<T_temp(3,1)<<T_temp(3,2)<<T_temp(3,3)<<YAML::EndSeq;
 
 
-        std::cout << "No: " << save_counter << std::endl;
+        ROS_INFO_STREAM( "No: " << save_counter);
 
         save_counter++;
     }
@@ -916,7 +913,7 @@ void OctomapServer::cropOutsideBBX(const ros::Time& rostime){
     }
   }
 
-  //std::cout << keys.size() << " keys to remove\n";
+  //ROS_INFO_STREAM(keys.size() << " keys to remove");
   for(auto k:keys)
     m_octree->deleteNode(k.first, k.second);
 
@@ -958,7 +955,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
 
 
   // !Debug: always 16
-  //std::cout<<"treeDepth:"<<m_treeDepth<<std::endl;
+  //ROS_INFO_STREAM("treeDepth:" << m_treeDepth);
 
   // init pointcloud:
   pcl::PointCloud<PCLPoint> pclCloud;
@@ -968,7 +965,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
 
 
   // !Debug
-  //std::cout<<"Max tree Depth:"<<m_maxTreeDepth<<std::endl;
+  //ROS_INFO_STREAM("Max tree Depth:" << m_maxTreeDepth);
 
   // now, traverse all leafs in the tree:
   for (OcTreeT::iterator it = m_octree->begin(m_maxTreeDepth),
@@ -1331,7 +1328,7 @@ void OctomapServer::filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& gr
           cloud_filtered = cloud_out;
         }
 
-        //std::cout<<"Plane found!!!"<<std::endl;
+        //ROS_INFO_STREAM("Plane found!");
 
         groundPlaneFound = true;
       } else{
